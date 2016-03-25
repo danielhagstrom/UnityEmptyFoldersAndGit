@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 
+// Added comment to have git pick up changes
+
 namespace AltProg.CleanEmptyDir
 {
     [InitializeOnLoad]
