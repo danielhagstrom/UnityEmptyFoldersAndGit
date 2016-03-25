@@ -1,0 +1,48 @@
+#!/bin/sh
+# 
+# Pre-commit hook script for Unity projects to check that the folder of a newly added .meta file actually contains files, 
+# e.g. not committing empty (soon to be) folders by the meta file.
+# The assumption (and limitation) of this is not being able to have dots (.) in folder names throughout the project
+# Put this file into directory .git/hooks. To disable it remove it from there.
+
+# IFS, internal field separator defines word boundaries. default is <space><tab><newline>.
+# It's being set to only newline, to properly separate the grep command 
+# to avoid separating spaces in filenames as separate file entries, e.g. "New folder.meta"
+#echo "$IFS" | od -b # show the default values for IFS, just left behind as a context giver for other scripters
+IFS_backup=$IFS
+IFS="
+"
+# get a list of added files, stripped down to names only, grep the ones ending in .meta and grab the ones with only 1 period, e.g. folder metas
+added_folder_metas=( $(git diff --diff-filter=A --name-only --cached |  grep -E -Z -e '\.meta' | grep -E -v -e '(.*\..*\.)') )
+
+for added_folder_meta in ${added_folder_metas[@]}; do
+	# Using Shell Parameter Expansion of GNU Bash
+	folderPath="${added_folder_meta%.*}"
+	#extension="${added_folder_meta##*.}" # not currently used, just another example of SPE. Should contain ".meta"
+	#echo "folderPath: $folderPath" 
+	#echo "extension: $extension"
+	folderContents=`ls $folderPath` # look inside the folder to determine if empty or not
+	if [[ $folderContents == "" ]]; then
+		echo "${folderPath} seems like an empty folder!"
+		echo "Please do git reset on"
+		echo "${added_folder_meta}"
+		echo "or put something in the folder!"
+		echo
+		echo "Did not commit anything"
+		exit 1 # we could instead ask the user for a yes/no to continue, but this is just a proof of concept
+	else
+		# another case would be adding a new folder(meta), with files in it, which are not added themselves
+		addedFiles=`git diff --diff-filter=A --name-only --cached | grep -e "${folderPath}/.\+"`
+		if [[ $addedFiles == "" ]]; then
+			echo "${folderPath}"
+			echo "is not empty, but nothing in it is added!"
+			echo "Please adress this by adding at least one of the contained files."
+			echo
+			echo "Did not commit anything"
+			exit 1 # we could instead ask the user for a yes/no to continue, but this is just a proof of concept
+		fi
+	fi
+done
+IFS=$IFS_backup # restore the IFS defaults to not mess up (potential) later hook operations
+
+exit 0
